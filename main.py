@@ -48,7 +48,8 @@ def print_menu():
     """Exibe menu principal"""
     print("\nOpcoes:")
     print("1 - Iniciar envio de afastamentos")
-    print("2 - Criar arquivo de exemplo")
+    print("2 - Reapurar afastamentos")
+    print("3 - Criar arquivo de exemplo")
     print("0 - Sair")
     print()
 
@@ -254,6 +255,71 @@ def enviar_afastamento(token: str, matricula: str, codigo_calculo: int, payload:
         return False, str(e)
 
 
+def reapurar_afastamento(token: str, matricula: str, codigo_calculo: int, data: str, payload: dict) -> Tuple[bool, str]:
+    """
+    Reapura um afastamento na API Senior
+
+    Returns:
+        Tuple[bool, str]: (sucesso, mensagem)
+    """
+    # Identificador do afastamento: empresa-filial-matricula-data-hora
+    afastamento_id = f"{EMPRESA_FILIAL}-{matricula}-{data}-00:00"
+
+    url = f"{BASE_URL}/gestaoponto-backend/api/colaboradores/{EMPRESA_FILIAL}-{matricula}/historicos/afastamentos/{afastamento_id}"
+
+    params = {
+        "codigoCalculo": codigo_calculo,
+        "dataAcerto": data,
+        "forcarRecalculo": "false",
+        "gestor": "S"
+    }
+
+    headers = {
+        "Host": "webp20.seniorcloud.com.br:31531",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "pt-BR,pt;q=0.8,en-US;q=0.5,en;q=0.3",
+        "Content-Type": "application/json;charset=utf-8",
+        "assertion": token,
+        "Origin": BASE_URL,
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin"
+    }
+
+    try:
+        response = requests.put(
+            url,
+            params=params,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
+        if response.status_code == 200 or response.status_code == 201:
+            return True, "OK"
+        else:
+            # Tentar extrair mensagem de erro da resposta
+            try:
+                erro_json = response.json()
+                if isinstance(erro_json, dict):
+                    mensagem = erro_json.get('message') or erro_json.get('error') or str(erro_json)
+                else:
+                    mensagem = str(erro_json)
+            except:
+                mensagem = response.text[:200] if response.text else f"HTTP {response.status_code}"
+
+            return False, mensagem
+
+    except requests.exceptions.Timeout:
+        return False, "Timeout na requisicao"
+    except requests.exceptions.ConnectionError:
+        return False, "Erro de conexao"
+    except Exception as e:
+        return False, str(e)
+
+
 def salvar_erros(erros: List[Dict], nome_arquivo_origem: str):
     """Salva arquivo de erros"""
     if not erros:
@@ -329,6 +395,27 @@ def processar_registro(registro: Dict, token: str, codigo_calculo: int, resultad
 
     payload = criar_payload(codigo_situacao, data)
     sucesso, mensagem = enviar_afastamento(token, matricula, codigo_calculo, payload)
+
+    if sucesso:
+        resultados.adicionar_sucesso(matricula, data)
+    else:
+        resultados.adicionar_erro({
+            'matricula': matricula,
+            'data': data,
+            'codigo_situacao': codigo_situacao,
+            'erro': mensagem,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+
+def processar_registro_reapuracao(registro: Dict, token: str, codigo_calculo: int, resultados: ResultadosThreadSafe):
+    """Processa um unico registro de reapuracao (funcao worker para threads)"""
+    matricula = registro['matricula']
+    data = registro['data']
+    codigo_situacao = registro['codigo_situacao']
+
+    payload = criar_payload(codigo_situacao, data)
+    sucesso, mensagem = reapurar_afastamento(token, matricula, codigo_calculo, data, payload)
 
     if sucesso:
         resultados.adicionar_sucesso(matricula, data)
@@ -441,6 +528,105 @@ def executar_envio(token: str):
     print()
 
 
+def executar_reapuracao(token: str):
+    """Executa o fluxo de reapuracao de afastamentos"""
+    # Selecionar arquivo
+    arquivo = selecionar_arquivo()
+    if not arquivo:
+        return
+
+    # Solicitar codigo de calculo
+    print()
+    while True:
+        try:
+            codigo_calculo = input("Digite o codigo de calculo: ").strip()
+            codigo_calculo = int(codigo_calculo)
+            break
+        except ValueError:
+            print("Digite apenas numeros.")
+
+    # Solicitar numero de threads
+    print()
+    while True:
+        try:
+            num_threads_str = input(f"Numero de threads (1-{MAX_THREADS}): ").strip()
+            num_threads = int(num_threads_str)
+            if 1 <= num_threads <= MAX_THREADS:
+                break
+            else:
+                print(f"Digite um numero entre 1 e {MAX_THREADS}.")
+        except ValueError:
+            print("Digite apenas numeros.")
+
+    # Ler CSV
+    print(f"\nLendo arquivo: {arquivo}")
+    registros, erros_leitura = ler_csv(arquivo)
+
+    if erros_leitura:
+        print(f"\nAvisos durante leitura do arquivo:")
+        for erro in erros_leitura[:5]:  # Mostrar apenas os 5 primeiros
+            print(f"  - {erro}")
+        if len(erros_leitura) > 5:
+            print(f"  ... e mais {len(erros_leitura) - 5} avisos")
+
+    if not registros:
+        print("\nNenhum registro valido encontrado no arquivo.")
+        return
+
+    print(f"\nRegistros validos encontrados: {len(registros)}")
+    print(f"Threads a utilizar: {num_threads}")
+
+    # Confirmacao
+    confirma = input("\nDeseja iniciar a reapuracao? (s/n): ").strip().lower()
+    if confirma != 's':
+        print("Operacao cancelada.")
+        return
+
+    # Processar registros
+    print("\nIniciando reapuracao...\n")
+    print("-" * 70)
+    print(f"{'HORA':<10} | {'STATUS':<6} | {'MATRICULA':<15} | {'DATA':<12} | DETALHE")
+    print("-" * 70)
+
+    resultados = ResultadosThreadSafe(len(registros), mostrar_logs=True)
+
+    if num_threads == 1:
+        # Modo sequencial com delay
+        for i, registro in enumerate(registros, 1):
+            processar_registro_reapuracao(registro, token, codigo_calculo, resultados)
+
+            if i < len(registros):
+                time.sleep(DELAY_ENTRE_REQUISICOES)
+    else:
+        # Modo multi-thread
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = [
+                executor.submit(processar_registro_reapuracao, registro, token, codigo_calculo, resultados)
+                for registro in registros
+            ]
+
+            # Aguardar todas as threads terminarem
+            for future in as_completed(futures):
+                pass  # Os logs sao exibidos dentro de processar_registro_reapuracao
+
+    print("-" * 70)
+
+    # Resumo
+    print("=" * 60)
+    print("RESUMO DO PROCESSAMENTO")
+    print("=" * 60)
+    print(f"Total de registros: {len(registros)}")
+    print(f"Reapurados com sucesso: {resultados.sucessos}")
+    print(f"Erros: {len(resultados.erros)}")
+
+    # Salvar erros
+    if resultados.erros:
+        arquivo_erros = salvar_erros(resultados.erros, arquivo)
+        print(f"\nArquivo de erros salvo em: {arquivo_erros}")
+
+    print()
+
+
 def criar_arquivo_exemplo():
     """Cria arquivo CSV de exemplo"""
     if not os.path.exists(INPUT_DIR):
@@ -505,6 +691,8 @@ def main():
         if opcao == '1':
             executar_envio(token)
         elif opcao == '2':
+            executar_reapuracao(token)
+        elif opcao == '3':
             criar_arquivo_exemplo()
         elif opcao == '0':
             print("\nAte logo!")
