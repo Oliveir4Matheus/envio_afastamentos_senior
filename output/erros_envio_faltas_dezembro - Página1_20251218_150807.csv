@@ -1,0 +1,10 @@
+matricula;data;codigo_situacao;erro;timestamp
+37684;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:02
+37636;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:02
+37635;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:03
+37632;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:04
+37624;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:04
+37617;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:05
+37565;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:06
+37145;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:06
+37012;2025-12-15;15;{'codigo': 500, 'mensagens': ['java.lang.ArrayIndexOutOfBoundsException'], 'stack': 'java.lang.ArrayIndexOutOfBoundsException\r\n', 'status': 'Falha'};2025-12-18 15:08:07
