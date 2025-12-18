@@ -24,6 +24,7 @@ from senior_auth import authenticate_complete, get_credentials
 
 # Configuracoes
 BASE_URL = "https://webp20.seniorcloud.com.br:31531"
+EMPRESA_FILIAL = os.getenv("EMPRESA_FILIAL", "303-1")  # Prefixo empresa-filial para identificador do colaborador
 DELAY_ENTRE_REQUISICOES = 0.5  # segundos (usado apenas com 1 thread)
 MAX_THREADS = 20
 INPUT_DIR = "input"
@@ -200,7 +201,7 @@ def enviar_afastamento(token: str, matricula: str, codigo_calculo: int, payload:
     Returns:
         Tuple[bool, str]: (sucesso, mensagem)
     """
-    url = f"{BASE_URL}/gestaoponto-backend/api/colaboradores/{matricula}/historicos/afastamentos/"
+    url = f"{BASE_URL}/gestaoponto-backend/api/colaboradores/{EMPRESA_FILIAL}-{matricula}/historicos/afastamentos/"
 
     params = {
         "codigoCalculo": codigo_calculo,
